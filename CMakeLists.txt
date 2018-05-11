@@ -1,5 +1,14 @@
-cmake_minimum_required(VERSION 2.8.10)
-project(brpc C CXX)
+cmake_minimum_required(VERSION 3.5)
+
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+include(HunterGate)
+HunterGate(
+    URL "https://github.com/ambroff/hunter/archive/ccb28783990b0f3ef0759024ac5583db4f9148bc.zip"
+    SHA1 "7a3c93712e7185a1b432cbc7787762da7e281e31"
+)
+
+project(brpc)
 
 # Enable MACOSX_RPATH. Run "cmake --help-policy CMP0042" for policy details.
 if(POLICY CMP0042)
@@ -26,7 +35,9 @@ option(WITH_GLOG "With glog" OFF)
 option(DEBUG "Print debug logs" OFF)
 option(WITH_DEBUG_SYMBOLS "With debug symbols" ON)
 option(WITH_THRIFT "With thrift framed protocol supported" OFF)
-option(BUILD_UNIT_TESTS "Whether to build unit tests" OFF)
+option(BRPC_BUILD_SHARED "Build shared library" OFF)
+option(BRPC_BUILD_GEN_MCPACK "Build protoc-gen-mcpack executable" OFF)
+option(BRPC_BUILD_TOOLS "Build brpc tools used for debugging" OFF)
 
 set(WITH_GLOG_VAL "0")
 if(WITH_GLOG)
@@ -47,10 +58,10 @@ include(GNUInstallDirs)
 
 configure_file(${PROJECT_SOURCE_DIR}/config.h.in ${PROJECT_SOURCE_DIR}/src/butil/config.h @ONLY)
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+hunter_add_package(gflags)
+find_package(gflags CONFIG REQUIRED)
 
-find_package(GFLAGS REQUIRED)
-
+get_target_property(GFLAGS_INCLUDE_PATH gflags INTERFACE_INCLUDE_DIRECTORIES)
 execute_process(
     COMMAND bash -c "grep \"namespace [_A-Za-z0-9]\\+ {\" ${GFLAGS_INCLUDE_PATH}/gflags/gflags_declare.h | head -1 | awk '{print $2}' | tr -d '\n'"
     OUTPUT_VARIABLE GFLAGS_NS
@@ -112,7 +123,19 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     endif()
 endif()
 
-include(FindProtobuf)
+hunter_add_package(OpenSSL)
+find_package(OpenSSL REQUIRED)
+
+hunter_add_package(ZLIB)
+find_package(ZLIB CONFIG REQUIRED)
+
+option(protobuf_MODULE_COMPATIBLE "use protobuf in module compatible mode" ON)
+hunter_add_package(Protobuf)
+find_package(Protobuf CONFIG REQUIRED)
+
+hunter_add_package(leveldb)
+find_package(leveldb CONFIG REQUIRED)
+
 include(FindThreads)
 
 find_path(LEVELDB_INCLUDE_PATH NAMES leveldb/db.h)
@@ -151,22 +174,19 @@ include_directories(
         )
 
 set(DYNAMIC_LIB
-    ${GFLAGS_LIBRARY}
-    ${PROTOBUF_LIBRARIES}
-    ${LEVELDB_LIB}
-    ${PROTOC_LIB}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${THRIFT_LIB}
-    ${THRIFTNB_LIB}
-    ${OPENSSL_LIBRARIES}
-    ${OPENSSL_CRYPTO_LIBRARY}
     dl
-    z
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    ZLIB::zlib
     )
+
+if (NOT APPLE)
+    list(APPEND DYNAMIC_LIB rt)
+endif()
 set(BRPC_PRIVATE_LIBS "-lgflags -lprotobuf -lleveldb -lprotoc -lssl -lcrypto -ldl -lz")
 
 if(WITH_GLOG)
-    set(DYNAMIC_LIB ${DYNAMIC_LIB} ${GLOG_LIB})
     set(BRPC_PRIVATE_LIBS "${BRPC_PRIVATE_LIBS} -lglog")
 endif()
 
@@ -387,7 +407,10 @@ add_subdirectory(src)
 if(BUILD_UNIT_TESTS)
     add_subdirectory(test)
 endif()
-add_subdirectory(tools)
+
+if (BRPC_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
 
 file(COPY ${CMAKE_CURRENT_BINARY_DIR}/brpc/
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/output/include/brpc/
