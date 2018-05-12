@@ -145,12 +145,8 @@ if ((NOT LEVELDB_INCLUDE_PATH) OR (NOT LEVELDB_LIB))
 endif()
 
 if(WITH_GLOG)
-    find_path(GLOG_INCLUDE_PATH NAMES glog/logging.h)
-    find_library(GLOG_LIB NAMES glog)
-    if((NOT GLOG_INCLUDE_PATH) OR (NOT GLOG_LIB))
-        message(FATAL_ERROR "Fail to find glog")
-    endif()
-    include_directories(${GLOG_INCLUDE_PATH})
+    hunter_add_package(glog)
+    find_package(glog CONFIG REQUIRED)
 endif()
 
 find_library(PROTOC_LIB NAMES protoc)
@@ -395,6 +391,7 @@ compile_proto(PROTO_HDRS PROTO_SRCS ${PROJECT_BINARY_DIR}
 add_library(PROTO_LIB OBJECT ${PROTO_SRCS} ${PROTO_HDRS})
 
 set(SOURCES
+    ${BUTIL_SOURCES}
     ${BVAR_SOURCES}
     ${BTHREAD_SOURCES}
     ${JSON2PB_SOURCES}
