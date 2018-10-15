@@ -144,7 +144,7 @@ if ((NOT LEVELDB_INCLUDE_PATH) OR (NOT LEVELDB_LIB))
     message(FATAL_ERROR "Fail to find leveldb")
 endif()
 
-if(WITH_GLOG)
+if(BRPC_WITH_GLOG)
     hunter_add_package(glog)
     find_package(glog CONFIG REQUIRED)
 endif()
